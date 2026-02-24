@@ -26,7 +26,7 @@ async function poll() {
           // OpenAI/Gemini-Modelle: /v1/chat/completions (OpenAI-Format via LiteLLM)
           // Reasoning-Modelle (gpt-5*) brauchen mehr Tokens fuer internes Reasoning
           const isReasoning = model.startsWith('gpt-5');
-          const maxTok = isReasoning ? Math.max(job.max_tokens || 1024, 2048) : (job.max_tokens || 1024);
+          const maxTok = isReasoning ? Math.max(job.max_tokens || 1024, 4096) : (job.max_tokens || 1024);
           const llmRes = await fetch(LITELLM_URL + '/v1/chat/completions', {
             method: 'POST',
             headers: {
