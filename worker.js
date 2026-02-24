@@ -18,12 +18,12 @@ async function poll() {
 
     for (const job of pending) {
       const model = job.model || 'claude-sonnet-4';
-      const isOpenAI = model.startsWith('gpt-') || model.startsWith('o1') || model.startsWith('o3');
+      const isOpenAIFormat = model.startsWith('gpt-') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('gemini-');
       console.log('Job ' + job.id + ' (' + model + '): ' + (job.text || '').substring(0, 60) + '...');
       try {
         let result;
-        if (isOpenAI) {
-          // OpenAI-Modelle: /v1/chat/completions (OpenAI-Format via LiteLLM)
+        if (isOpenAIFormat) {
+          // OpenAI/Gemini-Modelle: /v1/chat/completions (OpenAI-Format via LiteLLM)
           const llmRes = await fetch(LITELLM_URL + '/v1/chat/completions', {
             method: 'POST',
             headers: {

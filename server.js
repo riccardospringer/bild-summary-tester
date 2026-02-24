@@ -131,10 +131,10 @@ app.post('/api/summarize', async (req, res) => {
     if (!text) return res.status(400).json({ error: 'Text fehlt' });
     if (!system_prompt) return res.status(400).json({ error: 'System Prompt fehlt' });
 
-    const isOpenAI = selectedModel.startsWith('gpt-') || selectedModel.startsWith('o1') || selectedModel.startsWith('o3');
+    const isOpenAIFormat = selectedModel.startsWith('gpt-') || selectedModel.startsWith('o1') || selectedModel.startsWith('o3') || selectedModel.startsWith('gemini-');
 
-    if (isOpenAI) {
-      // OpenAI-Modelle: /v1/chat/completions via LiteLLM
+    if (isOpenAIFormat) {
+      // OpenAI/Gemini-Modelle: /v1/chat/completions via LiteLLM
       const baseUrl = process.env.ANTHROPIC_BASE_URL || 'https://litellm.dev.tech.as-nmt.de';
       const apiKey = process.env.ANTHROPIC_API_KEY;
       const llmRes = await fetch(baseUrl + '/v1/chat/completions', {
@@ -155,7 +155,7 @@ app.post('/api/summarize', async (req, res) => {
       });
       const llmData = await llmRes.json();
       if (llmData.error) {
-        return res.status(500).json({ error: 'OpenAI API Fehler: ' + (llmData.error.message || JSON.stringify(llmData.error)) });
+        return res.status(500).json({ error: 'API Fehler (' + selectedModel + '): ' + (llmData.error.message || JSON.stringify(llmData.error)) });
       }
       res.json({
         summary: llmData.choices[0].message.content,
