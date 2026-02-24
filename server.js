@@ -11,9 +11,20 @@ const app = express();
 app.use(express.json({ limit: '5mb' }));
 app.use(express.static(__dirname));
 
-const anthropic = new Anthropic.default({
-  baseURL: process.env.ANTHROPIC_BASE_URL || undefined
-});
+// Health check - Railway braucht das
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
+// Anthropic Client lazy init (crasht nicht beim Start wenn Key fehlt)
+let anthropic = null;
+function getAnthropicClient() {
+  if (!anthropic) {
+    anthropic = new Anthropic.default({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      baseURL: process.env.ANTHROPIC_BASE_URL || undefined
+    });
+  }
+  return anthropic;
+}
 
 // Artikel von URL holen und Text extrahieren
 app.post('/api/fetch-article', async (req, res) => {
@@ -61,7 +72,7 @@ app.post('/api/summarize', async (req, res) => {
     if (!text) return res.status(400).json({ error: 'Text fehlt' });
     if (!system_prompt) return res.status(400).json({ error: 'System Prompt fehlt' });
 
-    const message = await anthropic.messages.create({
+    const message = await getAnthropicClient().messages.create({
       model: model || 'claude-sonnet-4',
       max_tokens: max_tokens || 1024,
       temperature: temperature || 0.3,
@@ -156,7 +167,7 @@ app.post('/api/prompts', (req, res) => {
 });
 
 // Feedback speichern + per E-Mail senden
-const feedbackFile = path.join(__dirname, 'feedback.json');
+const feedbackFile = path.join(process.env.RAILWAY_ENVIRONMENT ? '/tmp' : __dirname, 'feedback.json');
 
 app.post('/api/feedback', async (req, res) => {
   try {
@@ -269,15 +280,7 @@ app.get('/api/feedback', (req, res) => {
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
 app.listen(PORT, HOST, () => {
-  const os = require('os');
-  const nets = os.networkInterfaces();
-  const ips = [];
-  for (const iface of Object.values(nets)) {
-    for (const cfg of iface) {
-      if (cfg.family === 'IPv4' && !cfg.internal) ips.push(cfg.address);
-    }
-  }
-  console.log('Summary Tester laeuft auf:');
-  console.log('  Lokal:    http://localhost:' + PORT);
-  ips.forEach(ip => console.log('  Netzwerk: http://' + ip + ':' + PORT));
+  console.log('Summary Tester laeuft auf Port ' + PORT);
+  console.log('ANTHROPIC_BASE_URL: ' + (process.env.ANTHROPIC_BASE_URL || 'nicht gesetzt'));
+  console.log('ANTHROPIC_API_KEY: ' + (process.env.ANTHROPIC_API_KEY ? 'gesetzt (' + process.env.ANTHROPIC_API_KEY.substring(0, 8) + '...)' : 'FEHLT!'));
 });
