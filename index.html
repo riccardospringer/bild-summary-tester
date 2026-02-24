@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BILD Summary Tester</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f2f2f2; color: #1a1a1a;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #c41e1e; padding: 10px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+    }
+    header h1 {
+      font-size: 20px; font-weight: 900; color: #fff;
+      font-family: Georgia, 'Times New Roman', serif;
+      letter-spacing: 1px;
+    }
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+    .header-actions button {
+      background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+      color: #fff; padding: 6px 12px; border-radius: 4px; font-size: 12px;
+      font-weight: 600; cursor: pointer; transition: background 0.15s;
+    }
+    .header-actions button:hover { background: rgba(255,255,255,0.25); }
+    .header-actions .icon-btn {
+      width: 34px; height: 34px; padding: 0; display: flex;
+      align-items: center; justify-content: center; border-radius: 50%;
+    }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      background: #fff; border-bottom: 1px solid #e0e0e0;
+      padding: 10px 24px; display: flex; gap: 10px; align-items: center;
+      flex-wrap: wrap; justify-content: center;
+    }
+    .toolbar-group {
+      display: flex; gap: 8px; align-items: center;
+    }
+    .toolbar-divider {
+      width: 1px; height: 28px; background: #e0e0e0; margin: 0 4px;
+    }
+    .toolbar input[type="text"] {
+      width: 360px; padding: 8px 12px; border: 2px solid #e0e0e0;
+      border-radius: 6px; font-size: 13px; font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    .toolbar input[type="text"]:focus { outline: none; border-color: #c41e1e; }
+    .toolbar select {
+      padding: 8px 10px; border: 2px solid #e0e0e0; border-radius: 6px;
+      font-size: 13px; font-family: inherit; background: #fff;
+      cursor: pointer; transition: border-color 0.15s;
+    }
+    .toolbar select:focus { outline: none; border-color: #c41e1e; }
+    .toolbar .prompt-select { min-width: 200px; font-weight: 600; }
+
+    .btn-sm {
+      padding: 8px 14px; border: none; border-radius: 6px; font-size: 13px;
+      font-weight: 700; cursor: pointer; white-space: nowrap; transition: background 0.15s;
+    }
+    .btn-red { background: #c41e1e; color: #fff; }
+    .btn-red:hover { background: #a01818; }
+    .btn-red:disabled { background: #ccc; cursor: not-allowed; }
+    .btn-dark { background: #1a1a1a; color: #fff; }
+    .btn-dark:hover { background: #333; }
+    .btn-dark:disabled { background: #ccc; cursor: not-allowed; }
+    .btn-outline {
+      background: #fff; color: #333; border: 2px solid #e0e0e0;
+    }
+    .btn-outline:hover { border-color: #c41e1e; color: #c41e1e; }
+
+    .status-bar {
+      text-align: center; padding: 6px; font-size: 12px; display: none;
+    }
+    .status-bar.info { display: block; background: #e3f2fd; color: #1565c0; }
+    .status-bar.error { display: block; background: #fce4ec; color: #c41e1e; }
+    .status-bar.success { display: block; background: #e8f5e9; color: #2e7d32; }
+
+    /* ── Feed Panel ── */
+    .feed-panel {
+      background: #fff; border-bottom: 1px solid #e0e0e0;
+      max-height: 0; overflow: hidden; transition: max-height 0.3s ease;
+    }
+    .feed-panel.open { max-height: 600px; overflow-y: auto; }
+    .feed-inner {
+      max-width: 900px; margin: 0 auto; padding: 16px 24px;
+    }
+    .feed-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .feed-header h2 {
+      font-size: 14px; font-weight: 800; color: #1a1a1a;
+    }
+    .feed-header span { font-size: 12px; color: #999; }
+    .feed-close {
+      background: none; border: none; font-size: 18px; color: #999;
+      cursor: pointer; padding: 4px 8px;
+    }
+    .feed-close:hover { color: #333; }
+    .feed-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 10px;
+    }
+    .feed-item {
+      padding: 12px 14px; border: 2px solid #f0f0f0; border-radius: 6px;
+      cursor: pointer; transition: all 0.15s; font-size: 13px;
+      line-height: 1.4; color: #333; display: flex; align-items: flex-start; gap: 10px;
+    }
+    .feed-item:hover { border-color: #c41e1e; background: #fff5f5; }
+    .feed-item.active { border-color: #c41e1e; background: #fce4ec; }
+    .feed-item.loaded { border-color: #2e7d32; background: #e8f5e9; }
+    .feed-item-num {
+      flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%;
+      background: #f0f0f0; color: #999; font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .feed-item.loaded .feed-item-num { background: #2e7d32; color: #fff; }
+    .feed-item.active .feed-item-num { background: #c41e1e; color: #fff; }
+    .feed-item-title { font-weight: 600; }
+    .feed-loading {
+      text-align: center; padding: 30px; color: #999; font-size: 13px;
+    }
+
+    /* ── Article Area ── */
+    .article-container {
+      max-width: 720px; margin: 0 auto; padding: 32px 20px 80px;
+    }
+
+    .placeholder {
+      text-align: center; padding: 80px 20px; color: #bbb;
+    }
+    .placeholder svg { margin-bottom: 16px; opacity: 0.4; }
+    .placeholder p { font-size: 15px; margin-bottom: 6px; }
+    .placeholder .sub { font-size: 12px; color: #ccc; }
+
+    /* BILD Article Styles */
+    .article-kicker {
+      font-size: 13px; font-weight: 700; color: #c41e1e; text-transform: uppercase;
+      letter-spacing: 0.5px; margin-bottom: 8px;
+    }
+    .article-headline {
+      font-size: 32px; font-weight: 900; line-height: 1.12; color: #1a1a1a;
+      font-family: Georgia, 'Times New Roman', serif; margin-bottom: 12px;
+    }
+    .article-byline {
+      font-size: 12px; color: #999; margin-bottom: 20px; padding-bottom: 16px;
+      border-bottom: 1px solid #eee;
+    }
+
+    /* ── Summary Box ── */
+    .summary-box {
+      background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+      margin-bottom: 24px; overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .summary-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; cursor: pointer; user-select: none;
+      transition: background 0.15s;
+    }
+    .summary-header:hover { background: #fafafa; }
+    .summary-header-left { display: flex; align-items: center; gap: 8px; }
+    .summary-icon {
+      width: 28px; height: 28px; background: #c41e1e; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .summary-icon svg { width: 16px; height: 16px; }
+    .summary-label {
+      font-size: 13px; font-weight: 700; color: #1a1a1a;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .summary-badge {
+      font-size: 10px; font-weight: 600; color: #c41e1e; background: #fce4ec;
+      padding: 2px 6px; border-radius: 3px; text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .summary-prompt-tag {
+      font-size: 10px; font-weight: 600; color: #1565c0; background: #e3f2fd;
+      padding: 2px 6px; border-radius: 3px;
+    }
+    .summary-chevron { transition: transform 0.25s ease; color: #999; }
+    .summary-box.open .summary-chevron { transform: rotate(180deg); }
+
+    .summary-content {
+      max-height: 0; overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+    .summary-box.open .summary-content { max-height: 500px; }
+    .summary-inner { padding: 0 16px 14px; }
+    .summary-inner ul { list-style: none; margin: 0; padding: 0; }
+    .summary-inner li {
+      font-size: 15px; line-height: 1.55; color: #333; padding: 5px 0 5px 20px;
+      position: relative;
+    }
+    .summary-inner li::before {
+      content: ''; position: absolute; left: 0; top: 13px;
+      width: 6px; height: 6px; background: #c41e1e; border-radius: 50%;
+    }
+    .summary-meta {
+      display: flex; gap: 12px; padding: 8px 16px; background: #fafafa;
+      border-top: 1px solid #f0f0f0; font-size: 11px; color: #aaa;
+    }
+    .summary-box.empty .summary-content { max-height: 80px; }
+    .summary-box.empty .summary-inner {
+      padding: 0 16px 14px; color: #bbb; font-size: 14px; font-style: italic;
+    }
+    .summary-box.loading .summary-inner::after {
+      content: ''; display: block; width: 100%; height: 14px;
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%; border-radius: 4px; margin: 8px 0;
+      animation: shimmer 1.5s infinite;
+    }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    .summary-generate {
+      display: flex; align-items: center; justify-content: center; padding: 14px 16px;
+    }
+    .btn-generate {
+      background: #c41e1e; color: #fff; border: none; padding: 10px 24px;
+      border-radius: 6px; font-size: 14px; font-weight: 700; cursor: pointer;
+      transition: background 0.15s; width: 100%;
+    }
+    .btn-generate:hover { background: #a01818; }
+    .btn-generate:disabled { background: #ccc; cursor: not-allowed; }
+
+    /* ── Article Body ── */
+    .article-body { font-size: 17px; line-height: 1.75; color: #333; }
+    .article-body p { margin-bottom: 16px; }
+
+    /* ── Config Drawer ── */
+    .drawer-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.3);
+      z-index: 200; opacity: 0; pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .drawer-overlay.open { opacity: 1; pointer-events: auto; }
+    .drawer {
+      position: fixed; top: 0; right: -420px; width: 400px; height: 100vh;
+      background: #fff; z-index: 201; padding: 20px;
+      overflow-y: auto; transition: right 0.3s ease;
+      box-shadow: -4px 0 20px rgba(0,0,0,0.1);
+    }
+    .drawer.open { right: 0; }
+    .drawer-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid #c41e1e;
+    }
+    .drawer-header h2 { font-size: 16px; font-weight: 800; color: #1a1a1a; }
+    .drawer-close {
+      background: none; border: none; font-size: 22px; color: #999;
+      cursor: pointer; padding: 4px;
+    }
+    .drawer-close:hover { color: #333; }
+    .drawer h3 {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; color: #c41e1e; margin: 16px 0 8px;
+    }
+    .drawer h3:first-of-type { margin-top: 0; }
+    .drawer label {
+      display: block; font-size: 12px; font-weight: 600; margin-bottom: 3px; color: #555;
+    }
+    .drawer input[type="text"], .drawer input[type="number"],
+    .drawer select, .drawer textarea {
+      width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px;
+      font-size: 13px; font-family: inherit; margin-bottom: 10px;
+    }
+    .drawer input:focus, .drawer textarea:focus, .drawer select:focus {
+      outline: none; border-color: #c41e1e;
+    }
+    .drawer textarea {
+      resize: vertical; font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12px; line-height: 1.5;
+    }
+    .drawer .row { display: flex; gap: 8px; }
+    .drawer .row > * { flex: 1; }
+    .drawer .prompt-bar { display: flex; gap: 6px; margin-bottom: 10px; }
+    .drawer .prompt-bar select { flex: 1; margin-bottom: 0; }
+    .btn-save {
+      background: #f0f0f0; color: #333; border: 1px solid #ddd; padding: 7px 14px;
+      border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .btn-save:hover { background: #e4e4e4; }
+
+    .history-section { margin-top: 24px; padding-top: 16px; border-top: 1px solid #eee; }
+    .history-item {
+      padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 12px;
+    }
+    .history-item strong { color: #333; }
+    .history-item .h-summary { color: #666; margin-top: 2px; }
+    .history-item .h-meta { color: #aaa; margin-top: 2px; }
+
+    /* ── Loading ── */
+    .btn-loading::after {
+      content: ''; display: inline-block; width: 12px; height: 12px;
+      border: 2px solid #fff; border-top-color: transparent; border-radius: 50%;
+      animation: spin 0.6s linear infinite; margin-left: 8px; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Nav Arrows (for feed navigation) ── */
+    .article-nav {
+      display: flex; justify-content: space-between; margin-bottom: 20px;
+    }
+    .article-nav button {
+      background: #f0f0f0; border: 1px solid #ddd; padding: 6px 14px;
+      border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;
+      color: #555; transition: all 0.15s;
+    }
+    .article-nav button:hover { background: #e0e0e0; }
+    .article-nav button:disabled { opacity: 0.3; cursor: not-allowed; }
+    .article-nav .nav-counter {
+      font-size: 12px; color: #999; display: flex; align-items: center;
+    }
+
+    /* ── Feedback Box ── */
+    .feedback-box {
+      background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+      margin-bottom: 24px; padding: 16px; display: none;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .feedback-box.visible { display: block; }
+    .feedback-header {
+      font-size: 13px; font-weight: 700; color: #1a1a1a;
+      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;
+    }
+    .feedback-rating {
+      display: flex; gap: 8px; margin-bottom: 12px;
+    }
+    .feedback-rating button {
+      flex: 1; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;
+      background: #fff; font-size: 14px; cursor: pointer; transition: all 0.15s;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      font-weight: 600; color: #555;
+    }
+    .feedback-rating button:hover { border-color: #999; }
+    .feedback-rating button.selected-good {
+      border-color: #2e7d32; background: #e8f5e9; color: #2e7d32;
+    }
+    .feedback-rating button.selected-bad {
+      border-color: #c41e1e; background: #fce4ec; color: #c41e1e;
+    }
+    .feedback-comment {
+      width: 100%; padding: 10px 12px; border: 2px solid #e0e0e0; border-radius: 6px;
+      font-size: 13px; font-family: inherit; resize: vertical; min-height: 60px;
+      transition: border-color 0.15s; margin-bottom: 10px;
+    }
+    .feedback-comment:focus { outline: none; border-color: #c41e1e; }
+    .feedback-actions { display: flex; gap: 8px; align-items: center; }
+    .feedback-status {
+      font-size: 12px; color: #2e7d32; margin-left: 8px; display: none;
+    }
+    .feedback-status.visible { display: inline; }
+
+    @media (max-width: 768px) {
+      .toolbar { flex-direction: column; gap: 8px; }
+      .toolbar input[type="text"] { width: 100%; }
+      .toolbar-divider { display: none; }
+      .article-container { padding: 20px 16px 60px; }
+      .article-headline { font-size: 26px; }
+      .drawer { width: 100%; right: -100%; }
+      .feed-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <h1>BILD</h1>
+    <div class="header-actions">
+      <button onclick="toggleDrawer()" class="icon-btn" title="Prompt-Einstellungen">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Toolbar: URL + Prompt Dropdown + Feed Button -->
+  <div class="toolbar">
+    <div class="toolbar-group">
+      <input type="text" id="articleUrl" placeholder="BILD-Artikel-URL eingeben..." />
+      <button class="btn-sm btn-red" id="fetchBtn" onclick="fetchArticle()">Laden</button>
+    </div>
+    <div class="toolbar-divider"></div>
+    <div class="toolbar-group">
+      <select id="promptSelectMain" class="prompt-select" onchange="loadPromptFromMain()">
+        <option value="">-- Prompt --</option>
+      </select>
+      <select id="modelSelectMain">
+        <option value="claude-sonnet-4">Sonnet 4</option>
+        <option value="claude-sonnet-4-5">Sonnet 4.5</option>
+        <option value="claude-sonnet-4-6">Sonnet 4.6</option>
+        <option value="claude-haiku-4-5">Haiku 4.5</option>
+        <option value="claude-opus-4-5">Opus 4.5</option>
+        <option value="claude-opus-4-6">Opus 4.6</option>
+      </select>
+    </div>
+    <div class="toolbar-divider"></div>
+    <div class="toolbar-group">
+      <button class="btn-sm btn-dark" id="feedBtn" onclick="loadFeed()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align: -2px; margin-right: 4px;">
+          <path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/>
+        </svg>
+        10 Artikel laden
+      </button>
+    </div>
+  </div>
+
+  <div id="statusBar" class="status-bar"></div>
+
+  <!-- Feed Panel (hidden by default) -->
+  <div class="feed-panel" id="feedPanel">
+    <div class="feed-inner">
+      <div class="feed-header">
+        <h2>BILD.de Artikel</h2>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span id="feedCount"></span>
+          <button class="feed-close" onclick="closeFeed()">&times;</button>
+        </div>
+      </div>
+      <div class="feed-grid" id="feedGrid">
+        <div class="feed-loading">Feed wird geladen...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Article Content -->
+  <div class="article-container">
+
+    <div id="placeholderView" class="placeholder">
+      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+      </svg>
+      <p>BILD-URL eingeben oder Feed laden</p>
+      <div class="sub">Prompt-Version oben auswaehlen, dann Zusammenfassung generieren</div>
+    </div>
+
+    <div id="articleView" style="display: none;">
+
+      <!-- Feed Navigation -->
+      <div class="article-nav" id="articleNav" style="display: none;">
+        <button onclick="navigateFeed(-1)" id="navPrev" disabled>&larr; Vorheriger</button>
+        <div class="nav-counter" id="navCounter"></div>
+        <button onclick="navigateFeed(1)" id="navNext" disabled>Naechster &rarr;</button>
+      </div>
+
+      <div class="article-kicker" id="articleKicker"></div>
+      <h1 class="article-headline" id="articleHeadline"></h1>
+      <div class="article-byline" id="articleByline"></div>
+
+      <!-- Summary Box -->
+      <div class="summary-box empty" id="summaryBox">
+        <div class="summary-header" onclick="toggleSummary()">
+          <div class="summary-header-left">
+            <div class="summary-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+              </svg>
+            </div>
+            <span class="summary-label">Zusammenfassung</span>
+            <span class="summary-badge">KI</span>
+            <span class="summary-prompt-tag" id="summaryPromptTag" style="display:none;"></span>
+          </div>
+          <svg class="summary-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+        <div class="summary-content">
+          <div class="summary-inner" id="summaryInner">
+            Zusammenfassung generieren...
+          </div>
+          <div class="summary-generate" id="summaryGenerate">
+            <button class="btn-generate" id="summarizeBtn" onclick="summarize()" disabled>
+              Zusammenfassung generieren
+            </button>
+          </div>
+          <div class="summary-meta" id="summaryMeta" style="display: none;"></div>
+        </div>
+      </div>
+
+      <!-- Feedback Box -->
+      <div class="feedback-box" id="feedbackBox">
+        <div class="feedback-header">Wie ist die Zusammenfassung?</div>
+        <div class="feedback-rating">
+          <button onclick="setRating('good')" id="ratingGood">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+            Gut
+          </button>
+          <button onclick="setRating('bad')" id="ratingBad">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+            Schlecht
+          </button>
+        </div>
+        <textarea class="feedback-comment" id="feedbackComment" placeholder="Optional: Was genau ist gut/schlecht? Fehler? Formulierung? Fakten?"></textarea>
+        <div class="feedback-actions">
+          <button class="btn-sm btn-red" id="feedbackSendBtn" onclick="sendFeedback()">Feedback senden</button>
+          <span class="feedback-status" id="feedbackStatus"></span>
+        </div>
+      </div>
+
+      <div class="article-body" id="articleBody"></div>
+    </div>
+  </div>
+
+  <!-- Config Drawer Overlay -->
+  <div class="drawer-overlay" id="drawerOverlay" onclick="toggleDrawer()"></div>
+
+  <!-- Config Drawer -->
+  <div class="drawer" id="drawer">
+    <div class="drawer-header">
+      <h2>Prompt-Einstellungen</h2>
+      <button class="drawer-close" onclick="toggleDrawer()">&times;</button>
+    </div>
+
+    <h3>Prompt verwalten</h3>
+    <div class="prompt-bar">
+      <select id="promptSelect" onchange="loadPrompt()">
+        <option value="">-- Prompt --</option>
+      </select>
+      <button class="btn-save" onclick="savePrompt()">Speichern</button>
+    </div>
+    <label>Name</label>
+    <input type="text" id="promptName" placeholder="z.B. Teaser v2, Kurz-Bullets..." />
+    <label>System Prompt</label>
+    <textarea id="systemPrompt" rows="18"></textarea>
+
+    <h3>Modell-Parameter</h3>
+    <div class="row">
+      <div>
+        <label>Max Tokens</label>
+        <input type="number" id="maxTokens" value="1024" min="100" max="4096" />
+      </div>
+      <div>
+        <label>Temperatur</label>
+        <input type="number" id="temperature" value="0.2" min="0" max="1" step="0.1" />
+      </div>
+    </div>
+
+    <div class="history-section">
+      <h3>Verlauf</h3>
+      <div id="history" style="font-size: 12px; color: #aaa;">Noch keine Tests.</div>
+    </div>
+  </div>
+
+  <script>
+    let articleText = '';
+    let articleTitle = '';
+    let currentSummary = '';
+    let currentRating = '';
+    let historyList = [];
+    let feedArticles = [];
+    let feedIndex = -1;
+    let prompts = [];
+
+    window.addEventListener('load', loadPrompts);
+
+    // ── Drawer ──
+    function toggleDrawer() {
+      document.getElementById('drawer').classList.toggle('open');
+      document.getElementById('drawerOverlay').classList.toggle('open');
+    }
+
+    // ── Summary Toggle ──
+    function toggleSummary() {
+      document.getElementById('summaryBox').classList.toggle('open');
+    }
+
+    // ── Prompts ──
+    async function loadPrompts() {
+      try {
+        const res = await fetch('/api/prompts');
+        prompts = await res.json();
+
+        // Populate drawer select
+        const drawerSelect = document.getElementById('promptSelect');
+        drawerSelect.innerHTML = '<option value="">-- Prompt --</option>';
+        prompts.forEach((p, i) => {
+          const opt = document.createElement('option');
+          opt.value = i;
+          opt.textContent = p.name;
+          opt.dataset.prompt = JSON.stringify(p);
+          drawerSelect.appendChild(opt);
+        });
+
+        // Populate main toolbar select
+        const mainSelect = document.getElementById('promptSelectMain');
+        mainSelect.innerHTML = '<option value="">-- Prompt --</option>';
+        prompts.forEach((p, i) => {
+          const opt = document.createElement('option');
+          opt.value = i;
+          opt.textContent = p.name;
+          mainSelect.appendChild(opt);
+        });
+
+        if (prompts.length > 0) {
+          drawerSelect.value = '0';
+          mainSelect.value = '0';
+          loadPrompt();
+        }
+      } catch (e) {
+        console.error('Prompts laden fehlgeschlagen:', e);
+      }
+    }
+
+    function loadPrompt() {
+      const select = document.getElementById('promptSelect');
+      const opt = select.options[select.selectedIndex];
+      if (!opt || !opt.dataset.prompt) return;
+      const p = JSON.parse(opt.dataset.prompt);
+      document.getElementById('promptName').value = p.name || '';
+      document.getElementById('systemPrompt').value = p.system_prompt || '';
+      document.getElementById('modelSelectMain').value = p.model || 'claude-sonnet-4';
+      document.getElementById('maxTokens').value = p.max_tokens || 1024;
+      document.getElementById('temperature').value = p.temperature || 0.2;
+
+      // Sync main select
+      document.getElementById('promptSelectMain').value = select.value;
+    }
+
+    function loadPromptFromMain() {
+      const mainSelect = document.getElementById('promptSelectMain');
+      const idx = mainSelect.value;
+      if (idx === '' || !prompts[idx]) return;
+
+      const p = prompts[idx];
+      document.getElementById('promptName').value = p.name || '';
+      document.getElementById('systemPrompt').value = p.system_prompt || '';
+      document.getElementById('modelSelectMain').value = p.model || 'claude-sonnet-4';
+      document.getElementById('maxTokens').value = p.max_tokens || 1024;
+      document.getElementById('temperature').value = p.temperature || 0.2;
+
+      // Sync drawer select
+      document.getElementById('promptSelect').value = idx;
+    }
+
+    async function savePrompt() {
+      const name = document.getElementById('promptName').value.trim();
+      if (!name) return alert('Bitte Prompt-Name eingeben');
+      try {
+        await fetch('/api/prompts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            system_prompt: document.getElementById('systemPrompt').value,
+            model: document.getElementById('modelSelectMain').value,
+            max_tokens: parseInt(document.getElementById('maxTokens').value),
+            temperature: parseFloat(document.getElementById('temperature').value)
+          })
+        });
+        await loadPrompts();
+        showStatus('Prompt gespeichert!', 'success');
+      } catch (e) {
+        showStatus('Fehler: ' + e.message, 'error');
+      }
+    }
+
+    // ── Feed ──
+    async function loadFeed() {
+      const btn = document.getElementById('feedBtn');
+      btn.disabled = true;
+      btn.classList.add('btn-loading');
+      showStatus('BILD.de Feed wird geladen...', 'info');
+
+      const panel = document.getElementById('feedPanel');
+      panel.classList.add('open');
+      document.getElementById('feedGrid').innerHTML =
+        '<div class="feed-loading">Artikel werden von BILD.de geladen...</div>';
+
+      try {
+        const res = await fetch('/api/feed');
+        const data = await res.json();
+        if (data.error) { showStatus(data.error, 'error'); return; }
+
+        feedArticles = data.articles.map(a => ({ ...a, loaded: false, text: null }));
+        feedIndex = -1;
+
+        document.getElementById('feedCount').textContent = data.count + ' Artikel gefunden';
+        renderFeedGrid();
+        showStatus(data.count + ' Artikel von BILD.de geladen', 'success');
+      } catch (e) {
+        showStatus('Feed-Fehler: ' + e.message, 'error');
+        document.getElementById('feedGrid').innerHTML =
+          '<div class="feed-loading" style="color: #c41e1e;">Fehler beim Laden des Feeds</div>';
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove('btn-loading');
+      }
+    }
+
+    function renderFeedGrid() {
+      const grid = document.getElementById('feedGrid');
+      grid.innerHTML = feedArticles.map((a, i) => {
+        let cls = 'feed-item';
+        if (i === feedIndex) cls += ' active';
+        else if (a.loaded) cls += ' loaded';
+        return '<div class="' + cls + '" onclick="selectFeedArticle(' + i + ')">' +
+          '<div class="feed-item-num">' + (i + 1) + '</div>' +
+          '<div class="feed-item-title">' + escHtml(a.title) + '</div>' +
+          '</div>';
+      }).join('');
+    }
+
+    async function selectFeedArticle(index) {
+      feedIndex = index;
+      renderFeedGrid();
+
+      const article = feedArticles[index];
+      document.getElementById('articleUrl').value = article.url;
+      await fetchArticleByUrl(article.url, index);
+    }
+
+    function closeFeed() {
+      document.getElementById('feedPanel').classList.remove('open');
+    }
+
+    function navigateFeed(dir) {
+      const next = feedIndex + dir;
+      if (next < 0 || next >= feedArticles.length) return;
+      selectFeedArticle(next);
+    }
+
+    function updateNavButtons() {
+      const nav = document.getElementById('articleNav');
+      if (feedArticles.length === 0) { nav.style.display = 'none'; return; }
+
+      nav.style.display = 'flex';
+      document.getElementById('navPrev').disabled = feedIndex <= 0;
+      document.getElementById('navNext').disabled = feedIndex >= feedArticles.length - 1;
+      document.getElementById('navCounter').textContent =
+        'Artikel ' + (feedIndex + 1) + ' / ' + feedArticles.length;
+    }
+
+    // ── Fetch Article ──
+    async function fetchArticle() {
+      const url = document.getElementById('articleUrl').value.trim();
+      if (!url) return;
+      await fetchArticleByUrl(url, -1);
+    }
+
+    async function fetchArticleByUrl(url, feedIdx) {
+      const btn = document.getElementById('fetchBtn');
+      btn.disabled = true;
+      btn.textContent = '...';
+      btn.classList.add('btn-loading');
+      showStatus('Artikel wird geladen...', 'info');
+
+      try {
+        const res = await fetch('/api/fetch-article', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        const data = await res.json();
+        if (data.error) { showStatus(data.error, 'error'); return; }
+
+        articleText = data.text;
+        articleTitle = data.title || '';
+
+        // Mark feed item as loaded
+        if (feedIdx >= 0 && feedArticles[feedIdx]) {
+          feedArticles[feedIdx].loaded = true;
+          feedArticles[feedIdx].text = data.text;
+          feedArticles[feedIdx].title = data.title;
+          renderFeedGrid();
+        }
+
+        document.getElementById('placeholderView').style.display = 'none';
+        document.getElementById('articleView').style.display = 'block';
+
+        document.getElementById('articleHeadline').textContent = articleTitle;
+        document.getElementById('articleKicker').textContent = extractKicker(articleTitle);
+
+        const bodyEl = document.getElementById('articleBody');
+        const paragraphs = data.text.split(/\n\n+/).filter(p => p.trim().length > 20);
+        bodyEl.innerHTML = paragraphs.slice(0, 12).map(p =>
+          '<p>' + escHtml(p.trim()) + '</p>'
+        ).join('');
+
+        document.getElementById('articleByline').textContent =
+          data.text.length + ' Zeichen | ~' + data.text.split(/\s+/).length + ' Woerter';
+
+        // Reset summary
+        const box = document.getElementById('summaryBox');
+        box.className = 'summary-box open';
+        document.getElementById('summaryInner').innerHTML =
+          '<p style="color: #aaa; font-style: italic; font-size: 14px;">Klicke auf den Button um eine Zusammenfassung zu generieren.</p>';
+        document.getElementById('summaryGenerate').style.display = 'flex';
+        document.getElementById('summaryMeta').style.display = 'none';
+        document.getElementById('summarizeBtn').disabled = false;
+        document.getElementById('summarizeBtn').textContent = 'Zusammenfassung generieren';
+        document.getElementById('summaryPromptTag').style.display = 'none';
+        hideFeedbackBox();
+
+        updateNavButtons();
+        showStatus('Artikel geladen!', 'success');
+      } catch (e) {
+        showStatus('Fehler: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Laden';
+        btn.classList.remove('btn-loading');
+      }
+    }
+
+    // ── Summarize ──
+    async function summarize() {
+      if (!articleText) return;
+      const systemPrompt = document.getElementById('systemPrompt').value;
+      if (!systemPrompt) {
+        toggleDrawer();
+        return alert('Bitte System Prompt in den Einstellungen eingeben');
+      }
+
+      const btn = document.getElementById('summarizeBtn');
+      btn.disabled = true;
+      btn.textContent = 'Generiere...';
+      btn.classList.add('btn-loading');
+
+      const box = document.getElementById('summaryBox');
+      box.className = 'summary-box open loading';
+
+      const model = document.getElementById('modelSelectMain').value;
+      const promptName = document.getElementById('promptName').value || '(unbenannt)';
+      const startTime = Date.now();
+
+      try {
+        const res = await fetch('/api/summarize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: articleText,
+            system_prompt: systemPrompt,
+            model: model,
+            max_tokens: parseInt(document.getElementById('maxTokens').value),
+            temperature: parseFloat(document.getElementById('temperature').value)
+          })
+        });
+        const data = await res.json();
+        const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+
+        if (data.error) {
+          box.className = 'summary-box open';
+          document.getElementById('summaryInner').innerHTML =
+            '<p style="color: #c41e1e; font-size: 14px;">' + escHtml(data.error) + '</p>';
+          return;
+        }
+
+        currentSummary = data.summary;
+        renderBullets(data.summary);
+        box.className = 'summary-box open';
+
+        // Show feedback box
+        showFeedbackBox();
+
+        // Show prompt tag
+        const tag = document.getElementById('summaryPromptTag');
+        tag.textContent = promptName;
+        tag.style.display = 'inline';
+
+        // Meta
+        const meta = document.getElementById('summaryMeta');
+        meta.style.display = 'flex';
+        meta.innerHTML =
+          '<span>' + data.model + '</span>' +
+          '<span>' + promptName + '</span>' +
+          '<span>' + data.usage.input_tokens + ' in / ' + data.usage.output_tokens + ' out</span>' +
+          '<span>' + duration + 's</span>';
+
+        addHistory({
+          time: new Date().toLocaleTimeString('de-DE'),
+          model: model,
+          prompt: promptName,
+          title: articleTitle.substring(0, 40),
+          tokens: data.usage.input_tokens + '+' + data.usage.output_tokens,
+          duration,
+          summary: data.summary.substring(0, 80)
+        });
+      } catch (e) {
+        box.className = 'summary-box open';
+        document.getElementById('summaryInner').innerHTML =
+          '<p style="color: #c41e1e; font-size: 14px;">Fehler: ' + escHtml(e.message) + '</p>';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Neu generieren';
+        btn.classList.remove('btn-loading');
+      }
+    }
+
+    // ── Render Bullets ──
+    function renderBullets(text) {
+      const container = document.getElementById('summaryInner');
+      const lines = text.split('\n')
+        .map(l => l.trim())
+        .filter(l => l.match(/^[-*•]\s/))
+        .map(l => l.replace(/^[-*•]\s+/, ''));
+
+      if (lines.length === 0) {
+        const sentences = text.split(/\.\s+/).filter(s => s.trim().length > 10);
+        if (sentences.length > 0) {
+          container.innerHTML = '<ul>' + sentences.slice(0, 4).map(s =>
+            '<li>' + escHtml(s.trim().replace(/\.$/, '') + '.') + '</li>'
+          ).join('') + '</ul>';
+        } else {
+          container.innerHTML = '<ul><li>' + escHtml(text) + '</li></ul>';
+        }
+      } else {
+        container.innerHTML = '<ul>' + lines.map(l =>
+          '<li>' + escHtml(l) + '</li>'
+        ).join('') + '</ul>';
+      }
+
+      document.getElementById('summaryGenerate').style.display = 'flex';
+      document.getElementById('summarizeBtn').textContent = 'Neu generieren';
+      document.getElementById('summarizeBtn').disabled = false;
+    }
+
+    function extractKicker(title) {
+      const match = title.match(/^([^:|–]+)[:|–]/);
+      if (match && match[1].trim().length < 30) return match[1].trim();
+      return '';
+    }
+
+    function addHistory(entry) {
+      historyList.unshift(entry);
+      document.getElementById('history').innerHTML = historyList.map(h =>
+        '<div class="history-item">' +
+        '<strong>' + h.time + '</strong> | ' + h.prompt + ' | ' + h.model +
+        (h.title ? '<div style="color:#555;font-weight:600;">' + escHtml(h.title) + '...</div>' : '') +
+        '<div class="h-summary">' + escHtml(h.summary) + '...</div>' +
+        '<div class="h-meta">' + h.tokens + ' tokens | ' + h.duration + 's</div>' +
+        '</div>'
+      ).join('');
+    }
+
+    function showStatus(msg, type) {
+      const el = document.getElementById('statusBar');
+      el.textContent = msg;
+      el.className = 'status-bar ' + type;
+      if (type === 'success') setTimeout(() => { el.className = 'status-bar'; }, 3000);
+    }
+
+    function escHtml(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    // ── Feedback ──
+    function setRating(rating) {
+      currentRating = rating;
+      document.getElementById('ratingGood').className = rating === 'good' ? 'selected-good' : '';
+      document.getElementById('ratingBad').className = rating === 'bad' ? 'selected-bad' : '';
+    }
+
+    function showFeedbackBox() {
+      currentRating = '';
+      document.getElementById('ratingGood').className = '';
+      document.getElementById('ratingBad').className = '';
+      document.getElementById('feedbackComment').value = '';
+      document.getElementById('feedbackStatus').className = 'feedback-status';
+      document.getElementById('feedbackBox').classList.add('visible');
+    }
+
+    function hideFeedbackBox() {
+      document.getElementById('feedbackBox').classList.remove('visible');
+    }
+
+    async function sendFeedback() {
+      if (!currentRating) return alert('Bitte erst Gut oder Schlecht waehlen');
+
+      const btn = document.getElementById('feedbackSendBtn');
+      btn.disabled = true;
+      btn.textContent = 'Sende...';
+      btn.classList.add('btn-loading');
+
+      try {
+        const res = await fetch('/api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            articleTitle: articleTitle,
+            articleUrl: document.getElementById('articleUrl').value,
+            promptName: document.getElementById('promptName').value || '(unbenannt)',
+            model: document.getElementById('modelSelectMain').value,
+            summary: currentSummary,
+            rating: currentRating,
+            comment: document.getElementById('feedbackComment').value
+          })
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        const status = document.getElementById('feedbackStatus');
+        status.textContent = data.emailSent
+          ? 'Gespeichert + E-Mail gesendet (' + data.total + ' Feedbacks)'
+          : 'Gespeichert (' + data.total + ' Feedbacks)';
+        status.className = 'feedback-status visible';
+
+        btn.classList.remove('btn-loading');
+        btn.textContent = 'Gesendet';
+        setTimeout(() => {
+          btn.textContent = 'Feedback senden';
+          btn.disabled = false;
+        }, 2000);
+      } catch (e) {
+        alert('Feedback-Fehler: ' + e.message);
+        btn.classList.remove('btn-loading');
+        btn.textContent = 'Feedback senden';
+        btn.disabled = false;
+      }
+    }
+
+    document.getElementById('articleUrl').addEventListener('keydown', e => {
+      if (e.key === 'Enter') fetchArticle();
+    });
+  </script>
+</body>
+</html>
