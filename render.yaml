@@ -1,0 +1,11 @@
+services:
+  - type: web
+    runtime: node
+    name: bild-summary-tester
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_BASE_URL
+        sync: false
