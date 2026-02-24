@@ -277,10 +277,18 @@ app.get('/api/feedback', (req, res) => {
   res.json(feedback);
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env.PORT, 10) || 3000;
 const HOST = '0.0.0.0';
-app.listen(PORT, HOST, () => {
-  console.log('Summary Tester laeuft auf Port ' + PORT);
+
+const server = app.listen(PORT, HOST, () => {
+  console.log('Summary Tester gestartet');
+  console.log('PORT: ' + PORT);
+  console.log('HOST: ' + HOST);
   console.log('ANTHROPIC_BASE_URL: ' + (process.env.ANTHROPIC_BASE_URL || 'nicht gesetzt'));
-  console.log('ANTHROPIC_API_KEY: ' + (process.env.ANTHROPIC_API_KEY ? 'gesetzt (' + process.env.ANTHROPIC_API_KEY.substring(0, 8) + '...)' : 'FEHLT!'));
+  console.log('ANTHROPIC_API_KEY: ' + (process.env.ANTHROPIC_API_KEY ? 'gesetzt' : 'FEHLT!'));
+});
+
+server.on('error', (err) => {
+  console.error('Server-Fehler:', err.message);
+  process.exit(1);
 });
