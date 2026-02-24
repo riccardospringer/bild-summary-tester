@@ -836,18 +836,55 @@
       const startTime = Date.now();
 
       try {
-        const res = await fetch('/api/summarize', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: articleText,
-            system_prompt: systemPrompt,
-            model: model,
-            max_tokens: parseInt(document.getElementById('maxTokens').value),
-            temperature: parseFloat(document.getElementById('temperature').value)
-          })
-        });
-        const data = await res.json();
+        // Versuche zuerst Server-Route, dann direkt LiteLLM-Proxy vom Browser
+        let data;
+        try {
+          const res = await fetch('/api/summarize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: AbortSignal.timeout(15000),
+            body: JSON.stringify({
+              text: articleText,
+              system_prompt: systemPrompt,
+              model: model,
+              max_tokens: parseInt(document.getElementById('maxTokens').value),
+              temperature: parseFloat(document.getElementById('temperature').value)
+            })
+          });
+          data = await res.json();
+        } catch (serverErr) {
+          // Server nicht erreichbar oder Timeout -> direkt LiteLLM aufrufen
+          console.log('Server-Route fehlgeschlagen, rufe LiteLLM direkt auf:', serverErr.message);
+          const apiBase = window.LITELLM_BASE || 'https://litellm.dev.tech.as-nmt.de';
+          const apiKey = window.LITELLM_KEY || 'sk-BIYj7SP_MwrGnL1O-j8e3Q';
+          const directRes = await fetch(apiBase + '/v1/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + apiKey,
+              'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify({
+              model: model || 'claude-sonnet-4',
+              max_tokens: parseInt(document.getElementById('maxTokens').value) || 1024,
+              temperature: parseFloat(document.getElementById('temperature').value) || 0.2,
+              system: systemPrompt,
+              messages: [
+                { role: 'user', content: 'Fasse folgenden Artikel zusammen:\n\n' + articleText }
+              ]
+            })
+          });
+          const directData = await directRes.json();
+          if (directData.error) {
+            data = { error: directData.error.message || JSON.stringify(directData.error) };
+          } else {
+            data = {
+              summary: directData.content[0].text,
+              model: directData.model,
+              usage: directData.usage || { input_tokens: 0, output_tokens: 0 }
+            };
+          }
+        }
         const duration = ((Date.now() - startTime) / 1000).toFixed(1);
 
         if (data.error) {
