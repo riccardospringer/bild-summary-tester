@@ -24,6 +24,9 @@ async function poll() {
         let result;
         if (isOpenAIFormat) {
           // OpenAI/Gemini-Modelle: /v1/chat/completions (OpenAI-Format via LiteLLM)
+          // Reasoning-Modelle (gpt-5*) brauchen mehr Tokens fuer internes Reasoning
+          const isReasoning = model.startsWith('gpt-5');
+          const maxTok = isReasoning ? Math.max(job.max_tokens || 1024, 2048) : (job.max_tokens || 1024);
           const llmRes = await fetch(LITELLM_URL + '/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -32,7 +35,7 @@ async function poll() {
             },
             body: JSON.stringify({
               model: model,
-              max_tokens: job.max_tokens || 1024,
+              max_tokens: maxTok,
               temperature: job.temperature || 0.2,
               messages: [
                 { role: 'system', content: job.system_prompt },
@@ -44,14 +47,19 @@ async function poll() {
           if (llmData.error) {
             result = { error: llmData.error.message || JSON.stringify(llmData.error) };
           } else {
-            result = {
-              summary: llmData.choices[0].message.content,
-              model: llmData.model,
-              usage: {
-                input_tokens: llmData.usage.prompt_tokens,
-                output_tokens: llmData.usage.completion_tokens
-              }
-            };
+            const content = llmData.choices[0].message.content || '';
+            if (!content.trim()) {
+              result = { error: 'Modell ' + model + ' hat leere Antwort geliefert (evtl. zu wenig Tokens fuer Reasoning)' };
+            } else {
+              result = {
+                summary: content,
+                model: llmData.model,
+                usage: {
+                  input_tokens: llmData.usage.prompt_tokens,
+                  output_tokens: llmData.usage.completion_tokens
+                }
+              };
+            }
           }
         } else {
           // Anthropic-Modelle: /v1/messages (Anthropic-Format)

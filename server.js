@@ -137,6 +137,8 @@ app.post('/api/summarize', async (req, res) => {
       // OpenAI/Gemini-Modelle: /v1/chat/completions via LiteLLM
       const baseUrl = process.env.ANTHROPIC_BASE_URL || 'https://litellm.dev.tech.as-nmt.de';
       const apiKey = process.env.ANTHROPIC_API_KEY;
+      const isReasoning = selectedModel.startsWith('gpt-5');
+      const maxTok = isReasoning ? Math.max(max_tokens || 1024, 2048) : (max_tokens || 1024);
       const llmRes = await fetch(baseUrl + '/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -145,7 +147,7 @@ app.post('/api/summarize', async (req, res) => {
         },
         body: JSON.stringify({
           model: selectedModel,
-          max_tokens: max_tokens || 1024,
+          max_tokens: maxTok,
           temperature: temperature || 0.2,
           messages: [
             { role: 'system', content: system_prompt },
@@ -157,8 +159,12 @@ app.post('/api/summarize', async (req, res) => {
       if (llmData.error) {
         return res.status(500).json({ error: 'API Fehler (' + selectedModel + '): ' + (llmData.error.message || JSON.stringify(llmData.error)) });
       }
+      const content = llmData.choices[0].message.content || '';
+      if (!content.trim()) {
+        return res.status(500).json({ error: 'Modell ' + selectedModel + ' hat leere Antwort geliefert' });
+      }
       res.json({
-        summary: llmData.choices[0].message.content,
+        summary: content,
         model: llmData.model,
         usage: {
           input_tokens: llmData.usage.prompt_tokens,
