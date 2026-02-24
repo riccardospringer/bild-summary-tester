@@ -82,13 +82,23 @@ app.post('/api/fetch-article', async (req, res) => {
       /Jetzt\s*mit\s*BILDplus\s*lesen\s*/gi,
       /BILDplus\s*/g,
       /Foto:\s*[^\n]{0,60}\n/g,
+      /Quelle:\s*BILD[^\n]*\n/gi,
+      /Mehr\s*zum\s*Video\s*anzeigen\s*/gi,
+      /Wir\s*haben\s*personalisierte\s*Videos\s*f[uü]r\s*dich![^\n]*\n/gi,
+      /Um\s*mit\s*Inhalten\s*von\s*Drittanbietern\s*zu\s*interagieren[^\n]*\n/gi,
+      /Aktiviere\s*externe\s*Inhalte[^\n]*\n/gi,
+      /Externer\s*Inhalt[^\n]*\n/gi,
+      /brauchen\s*wir\s*deine\s*Zustimmung[^\n]*/gi,
+      /Ich\s*bin\s*damit\s*einverstanden[^\n]*/gi,
+      /Datenschutzerkl[aä]rung[^\n]*/gi,
       /^\s*Teilen\s*$/gm,
       /^\s*Kommentare\s*$/gm,
       /^\s*Empfehlungen\s*$/gm,
       /^\s*Auch\s*interessant\s*$/gm,
       /^\s*Lesen\s*Sie\s*auch\s*$/gm,
       /^\s*BILD\s*Deals\s*$/gm,
-      /^\s*Newsletter\s*$/gm
+      /^\s*Newsletter\s*$/gm,
+      /\d{2}\.\d{2}\.\d{4}\s*-\s*\d{2}:\d{2}\s*Uhr\s*/g
     ];
     for (const pattern of stripPatterns) {
       cleanText = cleanText.replace(pattern, '');

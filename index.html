@@ -800,7 +800,8 @@
             // UI-Artefakte im Frontend nochmals filtern
             if (/^(TTS|Teilen|Kommentare|Newsletter|Empfehlungen|BILD Deals|Lesen Sie auch|Auch interessant)/i.test(p)) return false;
             if (/^Foto:/i.test(p)) return false;
-            if (/^(Artikel weiterlesen|Weiterlesen mit)/i.test(p)) return false;
+            if (/^(Artikel weiterlesen|Weiterlesen mit|Mehr zum Video|Wir haben personalisierte|Um mit Inhalten von|Aktiviere externe|Externer Inhalt|Ich bin damit einverstanden)/i.test(p)) return false;
+            if (/Quelle:\s*BILD/i.test(p) && p.length < 80) return false;
             return true;
           });
         bodyEl.innerHTML = paragraphs.slice(0, 15).map(p =>
