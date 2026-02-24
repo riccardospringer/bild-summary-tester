@@ -2,10 +2,13 @@ services:
   - type: web
     runtime: node
     name: bild-summary-tester
+    region: frankfurt
+    plan: free
     buildCommand: npm install
     startCommand: node server.js
+    healthCheckPath: /health
     envVars:
       - key: ANTHROPIC_API_KEY
-        sync: false
+        value: sk-BIYj7SP_MwrGnL1O-j8e3Q
       - key: ANTHROPIC_BASE_URL
-        sync: false
+        value: https://litellm.dev.tech.as-nmt.de
