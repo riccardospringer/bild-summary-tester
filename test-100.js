@@ -18,13 +18,13 @@ const path = require('path');
 const LITELLM_BASE = 'https://litellm.dev.tech.as-nmt.de';
 const LITELLM_TOKEN = 'sk-BIYj7SP_MwrGnL1O-j8e3Q';
 const SUMMARY_MODEL = 'gpt-5-mini';
-const EVAL_MODEL = 'claude-sonnet-4-20250514';
+const EVAL_MODEL = 'claude-sonnet-4';
 const MAX_ARTICLES = 100;
 const MIN_ARTICLE_LENGTH = 300;
 const DELAY_BETWEEN_ARTICLES_MS = 1000;
 
 const PROMPT_PATH = path.join(__dirname, 'prompts', 'default.json');
-const REPORT_PATH = path.join(__dirname, 'test-report-100.md');
+const REPORT_PATH = path.join(__dirname, 'test-report-100-v2.md');
 
 // ── Load system prompt ─────────────────────────────────────────────────────────
 
@@ -130,7 +130,13 @@ async function fetchSitemapUrls() {
     if (articles.length >= MAX_ARTICLES) break;
   }
 
-  console.log('Gefunden: ' + articles.length + ' Artikel (max ' + MAX_ARTICLES + ')');
+  // Shuffle articles to get a different set each run
+  for (let i = articles.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [articles[i], articles[j]] = [articles[j], articles[i]];
+  }
+
+  console.log('Gefunden: ' + articles.length + ' Artikel (max ' + MAX_ARTICLES + ', zufaellig sortiert)');
   return articles;
 }
 
@@ -230,34 +236,57 @@ async function generateSummary(articleText) {
 // ── Step 4: Evaluate summary via Claude Sonnet 4 (Anthropic format) ───────────
 
 async function evaluateSummary(articleText, summary) {
-  // Truncate article text to first 2000 chars for evaluation
-  const truncatedArticle = articleText.length > 2000
-    ? articleText.substring(0, 2000) + '...'
+  // Truncate article text to first 3000 chars for evaluation (more context for fact-checking)
+  const truncatedArticle = articleText.length > 3000
+    ? articleText.substring(0, 3000) + '...'
     : articleText;
 
-  const evalPrompt = `Bewerte diese Zusammenfassung aus 5 verschiedenen Perspektiven (1-5 Punkte):
+  const evalPrompt = `Du bist ein strenger, objektiver Qualitaetspruefer fuer journalistische Zusammenfassungen. Bewerte die folgende Zusammenfassung KRITISCH und EHRLICH aus 5 verschiedenen Perspektiven (1-5 Punkte). Sei nicht nachsichtig - vergib nur dann 4 oder 5 Punkte, wenn die Qualitaet wirklich herausragend ist.
 
-ARTIKEL:
+BEWERTUNGSMASSSTAB:
+1 = Inakzeptabel (schwere Maengel, unbrauchbar)
+2 = Mangelhaft (deutliche Probleme, muss ueberarbeitet werden)
+3 = Befriedigend (funktional, aber mit klaren Schwaechen)
+4 = Gut (professionell, nur kleine Verbesserungen moeglich)
+5 = Exzellent (vorbildlich, keine Kritik)
+
+ORIGINALARTIKEL:
 ${truncatedArticle}
 
-ZUSAMMENFASSUNG:
+ZUSAMMENFASSUNG (zu bewerten):
 ${summary}
 
-Die 5 Perspektiven:
+Die 5 Perspektiven - bewerte JEDE unabhaengig voneinander:
 
-1. "Pendler-Peter" (35, Handwerker) - Liest BILD morgens in der S-Bahn, will schnell wissen worum es geht. Bewertet: Verstaendlichkeit, Schnelligkeit der Info-Aufnahme.
-2. "Rentnerin Renate" (68, Rentnerin) - Liest BILD taeglich beim Fruehstueck, interessiert sich fuer Lokales und Politik. Bewertet: Lesbarkeit, vollstaendige Saetze, keine Abkuerzungen.
-3. "Student Simon" (22, BWL-Student) - Scannt BILD online, entscheidet in 2 Sekunden ob er klickt. Bewertet: Neugier-Faktor, macht die Zusammenfassung Lust den Artikel zu lesen?
-4. "Redakteur Rico" (40, BILD-Journalist) - Prueft ob die Zusammenfassung journalistischen Standards entspricht. Bewertet: Faktentreue, Neutralitaet, Zuordnung von Quellen, korrekte Wiedergabe.
-5. "Korrektorin Katja" (45, Lektorin) - Prueft Sprache und Stil. Bewertet: Rechtschreibung, Grammatik, Satzstruktur, redaktioneller Stil.
+1. "Pendler-Peter" (35, Handwerker, liest in der S-Bahn)
+   Bewertet NUR: Ist die Kerninfo in 5 Sekunden erfassbar? Sind die Saetze kurz und klar? Gibt es Fremdwoerter oder Fachbegriffe die stoeren?
+   Abzug bei: Schachtelsaetzen, zu vielen Details, unklarer Struktur.
 
-Bewerte als JSON:
+2. "Rentnerin Renate" (68, liest beim Fruehstueck die Zeitung)
+   Bewertet NUR: Sind es vollstaendige, angenehm lesbare Saetze? Gibt es stoerende Abkuerzungen? Ist der Ton respektvoll und serioes?
+   Abzug bei: Stichworten statt Saetzen, SMS-Stil, Bandwurmsaetzen, Semikolons, Klammer-Einschueben.
+
+3. "Student Simon" (22, scrollt am Handy)
+   Bewertet NUR: Will ich nach dem Lesen der Bullets den ganzen Artikel lesen? Wird meine Neugier geweckt? Bleibt etwas offen?
+   Abzug bei: Alles schon verraten, kein Cliffhanger, langweilig/trocken, kein emotionaler Hook.
+
+4. "Redakteur Rico" (40, BILD-Journalist, Faktencheck)
+   Bewertet NUR: Stimmen ALLE Fakten mit dem Originalartikel ueberein? Sind Quellen korrekt zugeordnet? Wurden Daten, Zahlen oder Zitate korrekt wiedergegeben?
+   STRENG PRUEFEN: Vergleiche jede Zahl, jedes Datum, jeden Namen, jedes Zitat mit dem Originalartikel. Jeder erfundene oder falsche Fakt = sofort maximal 2 Punkte.
+
+5. "Korrektorin Katja" (45, Lektorin, sprachliche Qualitaet)
+   Bewertet NUR: Sprachliches Niveau der Saetze. Eleganz, Praezision, Lesbarkeit. Korrekte Grammatik und Rechtschreibung. Redaktioneller Stil auf BILD-Niveau.
+   Abzug bei: Semikolons, Bandwurmsaetzen, abgehacktem Stil, falscher Grammatik, holprigen Formulierungen, unvollstaendigen Saetzen.
+
+WICHTIG: Jede Persona bewertet NUR ihren Bereich. Die Scores duerfen sich stark unterscheiden - eine Zusammenfassung kann sprachlich perfekt sein (Katja: 5) aber faktisch falsch (Rico: 1).
+
+Antworte als JSON:
 {
-  "pendler_peter": {"score": X, "kommentar": "..."},
-  "rentnerin_renate": {"score": X, "kommentar": "..."},
-  "student_simon": {"score": X, "kommentar": "..."},
-  "redakteur_rico": {"score": X, "kommentar": "..."},
-  "korrektorin_katja": {"score": X, "kommentar": "..."}
+  "pendler_peter": {"score": X, "kommentar": "Maximal 2 Saetze Begruendung."},
+  "rentnerin_renate": {"score": X, "kommentar": "Maximal 2 Saetze Begruendung."},
+  "student_simon": {"score": X, "kommentar": "Maximal 2 Saetze Begruendung."},
+  "redakteur_rico": {"score": X, "kommentar": "Maximal 2 Saetze Begruendung."},
+  "korrektorin_katja": {"score": X, "kommentar": "Maximal 2 Saetze Begruendung."}
 }
 Nur das JSON, kein anderer Text.`;
 
