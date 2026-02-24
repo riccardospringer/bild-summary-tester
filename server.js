@@ -166,6 +166,57 @@ app.post('/api/prompts', (req, res) => {
   res.json({ saved: filename });
 });
 
+// ── Job Queue (Relay fuer Cloud-Deployment) ──
+const jobs = {};
+
+// Frontend: Auftrag einreichen
+app.post('/api/queue', (req, res) => {
+  const id = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+  jobs[id] = { request: req.body, status: 'pending', result: null, created: Date.now() };
+  res.json({ id });
+});
+
+// Worker: Offene Auftraege abholen
+app.get('/api/pending', (req, res) => {
+  const pending = [];
+  for (const [id, job] of Object.entries(jobs)) {
+    if (job.status === 'pending') {
+      job.status = 'processing';
+      pending.push({ id, ...job.request });
+    }
+  }
+  res.json(pending);
+});
+
+// Worker: Ergebnis zurueckschicken
+app.post('/api/result/:id', (req, res) => {
+  if (jobs[req.params.id]) {
+    jobs[req.params.id].result = req.body;
+    jobs[req.params.id].status = 'done';
+  }
+  res.json({ ok: true });
+});
+
+// Frontend: Ergebnis abfragen
+app.get('/api/result/:id', (req, res) => {
+  const job = jobs[req.params.id];
+  if (!job) return res.json({ status: 'not_found' });
+  if (job.status === 'done') {
+    const result = job.result;
+    delete jobs[req.params.id];
+    return res.json({ status: 'done', result });
+  }
+  res.json({ status: job.status });
+});
+
+// Alte Jobs aufraeumen (alle 60s, max 5 Min alt)
+setInterval(() => {
+  const now = Date.now();
+  for (const id of Object.keys(jobs)) {
+    if (now - jobs[id].created > 300000) delete jobs[id];
+  }
+}, 60000);
+
 // Feedback speichern + per E-Mail senden
 const feedbackFile = path.join(process.env.RAILWAY_ENVIRONMENT ? '/tmp' : __dirname, 'feedback.json');
 

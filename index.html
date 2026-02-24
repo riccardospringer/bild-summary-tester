@@ -842,7 +842,7 @@
         const temp = parseFloat(document.getElementById('temperature').value) || 0.2;
 
         if (!isCloud) {
-          // Lokal: Server-Route nutzen
+          // Lokal: Server-Route direkt nutzen
           const res = await fetch('/api/summarize', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -853,33 +853,32 @@
           });
           data = await res.json();
         } else {
-          // Cloud (Render): LiteLLM direkt vom Browser aufrufen
-          const apiBase = 'https://litellm.dev.tech.as-nmt.de';
-          const apiKey = 'sk-BIYj7SP_MwrGnL1O-j8e3Q';
-          const directRes = await fetch(apiBase + '/v1/messages', {
+          // Cloud: Job in Queue einreihen, Worker auf Riccardos Mac verarbeitet
+          btn.textContent = 'Warte auf Worker...';
+          const qRes = await fetch('/api/queue', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer ' + apiKey,
-              'anthropic-version': '2023-06-01'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              model: model || 'claude-sonnet-4',
-              max_tokens: maxTok, temperature: temp,
-              system: systemPrompt,
-              messages: [{ role: 'user', content: 'Fasse folgenden Artikel zusammen:\n\n' + articleText }]
+              text: articleText, system_prompt: systemPrompt,
+              model: model, max_tokens: maxTok, temperature: temp
             })
           });
-          if (!directRes.ok) {
-            const errText = await directRes.text();
-            data = { error: 'LiteLLM Fehler (' + directRes.status + '): ' + errText };
-          } else {
-            const directData = await directRes.json();
-            data = {
-              summary: directData.content[0].text,
-              model: directData.model,
-              usage: directData.usage || { input_tokens: 0, output_tokens: 0 }
-            };
+          const { id } = await qRes.json();
+
+          // Ergebnis pollen (max 90 Sekunden)
+          data = null;
+          for (let i = 0; i < 45; i++) {
+            await new Promise(r => setTimeout(r, 2000));
+            const pollRes = await fetch('/api/result/' + id);
+            const pollData = await pollRes.json();
+            if (pollData.status === 'done') {
+              data = pollData.result;
+              break;
+            }
+            btn.textContent = 'Generiere... (' + ((i + 1) * 2) + 's)';
+          }
+          if (!data) {
+            data = { error: 'Timeout - der Worker auf Riccardos Mac ist nicht erreichbar. Bitte Riccardo kontaktieren.' };
           }
         }
         const duration = ((Date.now() - startTime) / 1000).toFixed(1);
