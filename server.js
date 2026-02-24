@@ -46,49 +46,129 @@ app.post('/api/fetch-article', async (req, res) => {
 
     const html = await response.text();
     const dom = new JSDOM(html, { url });
-    const reader = new Readability(dom.window.document);
+    const doc = dom.window.document;
+
+    // BILD-spezifische UI-Elemente vor Readability entfernen
+    const removeSelectors = [
+      '[class*="TTS"]', '[class*="tts"]', '[class*="audio-player"]',
+      '[class*="paywall"]', '[class*="Paywall"]',
+      '[class*="newsletter"]', '[class*="Newsletter"]',
+      '[class*="social-bar"]', '[class*="share"]',
+      '[class*="related"]', '[class*="teaser"]',
+      '[class*="ad-"]', '[class*="Ad-"]',
+      '[class*="cookie"]', '[class*="consent"]',
+      '[class*="navigation"]', '[class*="breadcrumb"]',
+      '[data-component="TTS"]',
+      'aside', 'nav', 'footer'
+    ];
+    for (const sel of removeSelectors) {
+      try { doc.querySelectorAll(sel).forEach(el => el.remove()); } catch (e) {}
+    }
+
+    const reader = new Readability(doc);
     const article = reader.parse();
 
     if (!article || !article.textContent) {
       return res.status(422).json({ error: 'Artikeltext konnte nicht extrahiert werden' });
     }
 
+    // Artikeltext nachbereinigen: BILD-UI-Artefakte entfernen
+    let cleanText = article.textContent.trim();
+    const stripPatterns = [
+      /TTS-Player\s*[uü]berspringen\s*/gi,
+      /Artikel\s*weiterlesen\s*/gi,
+      /Artikel\s*lesen\s*/gi,
+      /Weiterlesen\s*mit\s*BILDplus\s*/gi,
+      /Jetzt\s*mit\s*BILDplus\s*lesen\s*/gi,
+      /BILDplus\s*/g,
+      /Foto:\s*[^\n]{0,60}\n/g,
+      /^\s*Teilen\s*$/gm,
+      /^\s*Kommentare\s*$/gm,
+      /^\s*Empfehlungen\s*$/gm,
+      /^\s*Auch\s*interessant\s*$/gm,
+      /^\s*Lesen\s*Sie\s*auch\s*$/gm,
+      /^\s*BILD\s*Deals\s*$/gm,
+      /^\s*Newsletter\s*$/gm
+    ];
+    for (const pattern of stripPatterns) {
+      cleanText = cleanText.replace(pattern, '');
+    }
+    // Mehrfache Leerzeilen zusammenfassen
+    cleanText = cleanText.replace(/\n{3,}/g, '\n\n').trim();
+
     res.json({
       title: article.title || '',
-      text: article.textContent.trim(),
+      text: cleanText,
       excerpt: article.excerpt || '',
-      length: article.length || 0
+      length: cleanText.length
     });
   } catch (err) {
     res.status(500).json({ error: 'Fehler beim Laden: ' + err.message });
   }
 });
 
-// Zusammenfassung generieren
+// Zusammenfassung generieren (Anthropic + OpenAI via LiteLLM)
 app.post('/api/summarize', async (req, res) => {
   try {
     const { text, system_prompt, model, max_tokens, temperature } = req.body;
+    const selectedModel = model || 'claude-sonnet-4';
 
     if (!text) return res.status(400).json({ error: 'Text fehlt' });
     if (!system_prompt) return res.status(400).json({ error: 'System Prompt fehlt' });
 
-    const message = await getAnthropicClient().messages.create({
-      model: model || 'claude-sonnet-4',
-      max_tokens: max_tokens || 1024,
-      temperature: temperature || 0.3,
-      system: system_prompt,
-      messages: [
-        { role: 'user', content: 'Fasse folgenden Artikel zusammen:\n\n' + text }
-      ]
-    });
+    const isOpenAI = selectedModel.startsWith('gpt-') || selectedModel.startsWith('o1') || selectedModel.startsWith('o3');
 
-    res.json({
-      summary: message.content[0].text,
-      model: message.model,
-      usage: message.usage
-    });
+    if (isOpenAI) {
+      // OpenAI-Modelle: /v1/chat/completions via LiteLLM
+      const baseUrl = process.env.ANTHROPIC_BASE_URL || 'https://litellm.dev.tech.as-nmt.de';
+      const apiKey = process.env.ANTHROPIC_API_KEY;
+      const llmRes = await fetch(baseUrl + '/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + apiKey
+        },
+        body: JSON.stringify({
+          model: selectedModel,
+          max_tokens: max_tokens || 1024,
+          temperature: temperature || 0.2,
+          messages: [
+            { role: 'system', content: system_prompt },
+            { role: 'user', content: 'Fasse folgenden Artikel zusammen:\n\n' + text }
+          ]
+        })
+      });
+      const llmData = await llmRes.json();
+      if (llmData.error) {
+        return res.status(500).json({ error: 'OpenAI API Fehler: ' + (llmData.error.message || JSON.stringify(llmData.error)) });
+      }
+      res.json({
+        summary: llmData.choices[0].message.content,
+        model: llmData.model,
+        usage: {
+          input_tokens: llmData.usage.prompt_tokens,
+          output_tokens: llmData.usage.completion_tokens
+        }
+      });
+    } else {
+      // Anthropic-Modelle: Messages API
+      const message = await getAnthropicClient().messages.create({
+        model: selectedModel,
+        max_tokens: max_tokens || 1024,
+        temperature: temperature || 0.3,
+        system: system_prompt,
+        messages: [
+          { role: 'user', content: 'Fasse folgenden Artikel zusammen:\n\n' + text }
+        ]
+      });
+      res.json({
+        summary: message.content[0].text,
+        model: message.model,
+        usage: message.usage
+      });
+    }
   } catch (err) {
-    res.status(500).json({ error: 'Claude API Fehler: ' + err.message });
+    res.status(500).json({ error: 'API Fehler: ' + err.message });
   }
 });
 

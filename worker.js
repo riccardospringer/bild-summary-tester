@@ -17,34 +17,75 @@ async function poll() {
     const pending = await res.json();
 
     for (const job of pending) {
-      console.log('Job ' + job.id + ': ' + (job.text || '').substring(0, 60) + '...');
+      const model = job.model || 'claude-sonnet-4';
+      const isOpenAI = model.startsWith('gpt-') || model.startsWith('o1') || model.startsWith('o3');
+      console.log('Job ' + job.id + ' (' + model + '): ' + (job.text || '').substring(0, 60) + '...');
       try {
-        const llmRes = await fetch(LITELLM_URL + '/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + LITELLM_KEY,
-            'anthropic-version': '2023-06-01'
-          },
-          body: JSON.stringify({
-            model: job.model || 'claude-sonnet-4',
-            max_tokens: job.max_tokens || 1024,
-            temperature: job.temperature || 0.2,
-            system: job.system_prompt,
-            messages: [{ role: 'user', content: 'Fasse folgenden Artikel zusammen:\n\n' + job.text }]
-          })
-        });
-
-        const llmData = await llmRes.json();
-
-        if (llmData.error) {
-          await postResult(job.id, { error: llmData.error.message || JSON.stringify(llmData.error) });
-        } else {
-          await postResult(job.id, {
-            summary: llmData.content[0].text,
-            model: llmData.model,
-            usage: llmData.usage
+        let result;
+        if (isOpenAI) {
+          // OpenAI-Modelle: /v1/chat/completions (OpenAI-Format via LiteLLM)
+          const llmRes = await fetch(LITELLM_URL + '/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + LITELLM_KEY
+            },
+            body: JSON.stringify({
+              model: model,
+              max_tokens: job.max_tokens || 1024,
+              temperature: job.temperature || 0.2,
+              messages: [
+                { role: 'system', content: job.system_prompt },
+                { role: 'user', content: 'Fasse folgenden Artikel zusammen:\n\n' + job.text }
+              ]
+            })
           });
+          const llmData = await llmRes.json();
+          if (llmData.error) {
+            result = { error: llmData.error.message || JSON.stringify(llmData.error) };
+          } else {
+            result = {
+              summary: llmData.choices[0].message.content,
+              model: llmData.model,
+              usage: {
+                input_tokens: llmData.usage.prompt_tokens,
+                output_tokens: llmData.usage.completion_tokens
+              }
+            };
+          }
+        } else {
+          // Anthropic-Modelle: /v1/messages (Anthropic-Format)
+          const llmRes = await fetch(LITELLM_URL + '/v1/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + LITELLM_KEY,
+              'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify({
+              model: model,
+              max_tokens: job.max_tokens || 1024,
+              temperature: job.temperature || 0.2,
+              system: job.system_prompt,
+              messages: [{ role: 'user', content: 'Fasse folgenden Artikel zusammen:\n\n' + job.text }]
+            })
+          });
+          const llmData = await llmRes.json();
+          if (llmData.error) {
+            result = { error: llmData.error.message || JSON.stringify(llmData.error) };
+          } else {
+            result = {
+              summary: llmData.content[0].text,
+              model: llmData.model,
+              usage: llmData.usage
+            };
+          }
+        }
+
+        if (result.error) {
+          await postResult(job.id, result);
+        } else {
+          await postResult(job.id, result);
           console.log('Job ' + job.id + ': fertig');
         }
       } catch (err) {
