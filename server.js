@@ -138,7 +138,7 @@ app.post('/api/summarize', async (req, res) => {
       const baseUrl = process.env.ANTHROPIC_BASE_URL || 'https://litellm.dev.tech.as-nmt.de';
       const apiKey = process.env.ANTHROPIC_API_KEY;
       const isReasoning = selectedModel.startsWith('gpt-5');
-      const maxTok = isReasoning ? Math.max(max_tokens || 1024, 4096) : (max_tokens || 1024);
+      const maxTok = isReasoning ? Math.max(max_tokens || 1024, 16384) : (max_tokens || 1024);
       const llmRes = await fetch(baseUrl + '/v1/chat/completions', {
         method: 'POST',
         headers: {

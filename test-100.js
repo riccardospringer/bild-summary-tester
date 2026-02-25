@@ -218,8 +218,8 @@ async function generateSummary(articleText) {
     },
     body: JSON.stringify({
       model: SUMMARY_MODEL,
-      max_tokens: 4096,
-      temperature: 0.2,
+      max_tokens: 16384,
+      temperature: 0.15,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: 'Fasse folgenden Artikel zusammen:\n\n' + articleText }
