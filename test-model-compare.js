@@ -120,11 +120,10 @@ async function generateSummary(articleText, model) {
 }
 
 async function evaluateSummary(articleText, summary) {
-  const truncated = articleText.length > 3000 ? articleText.substring(0, 3000) + '...' : articleText;
-  const evalPrompt = `Du bist ein strenger, objektiver Qualitaetspruefer. Bewerte diese Zusammenfassung KRITISCH (1-5 Punkte).
+  const truncated = articleText.length > 6000 ? articleText.substring(0, 6000) + '... [gekuerzt]' : articleText;
+  const evalPrompt = `Bewerte diese BILD-Teaser-Bullets (1-5 Punkte). Sei praezise und fair.
 
-BEWERTUNGSMASSSTAB:
-1 = Inakzeptabel | 2 = Mangelhaft | 3 = Befriedigend | 4 = Gut | 5 = Exzellent
+1=Schwere Fehler | 2=Deutliche Maengel | 3=Solide mit Schwaechen | 4=Gut, professionell | 5=Hervorragend
 
 ARTIKEL:
 ${truncated}
@@ -132,11 +131,11 @@ ${truncated}
 ZUSAMMENFASSUNG:
 ${summary}
 
-5 Perspektiven (unabhaengig bewerten):
+5 Perspektiven:
 1. "Peter" (35, Handwerker) - Kerninfo in 5 Sekunden erfassbar? Kurze, klare Saetze?
-2. "Renate" (68, Rentnerin) - Vollstaendige, angenehm lesbare Saetze? Kein SMS-Stil?
-3. "Simon" (22, Student) - Macht neugierig auf den Artikel? Nicht alles verraten?
-4. "Rico" (40, Journalist) - ALLE Fakten korrekt? Nichts erfunden? Quellen korrekt?
+2. "Renate" (68, Rentnerin) - Vollstaendige, elegante Saetze? Angenehmer Lesefluss?
+3. "Simon" (22, Student) - Will ich weiterlesen? Bleibt Spannendes offen?
+4. "Rico" (40, Journalist) - Fakten korrekt? NUR pruefen was im Artikeltext steht. Bei gekuerztem Artikel Vorteil des Zweifels.
 5. "Katja" (45, Lektorin) - Elegante Sprache? Perfekte Grammatik? Journalistischer Stil?
 
 JSON:

@@ -26,7 +26,7 @@ const FETCH_RETRY_COUNT = 2;
 const FETCH_RETRY_DELAY_MS = 3000;
 
 const PROMPT_PATH = path.join(__dirname, 'prompts', 'default.json');
-const REPORT_PATH = path.join(__dirname, 'test-report-100-v4.md');
+const REPORT_PATH = path.join(__dirname, 'test-report-100-v5.md');
 
 // ── Load system prompt ─────────────────────────────────────────────────────────
 
@@ -219,7 +219,7 @@ async function generateSummary(articleText) {
     body: JSON.stringify({
       model: SUMMARY_MODEL,
       max_tokens: 16384,
-      temperature: 0.3,
+      temperature: promptConfig.temperature || 0.2,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: 'Fasse folgenden Artikel zusammen:\n\n' + articleText }
@@ -253,59 +253,59 @@ async function generateSummary(articleText) {
 // ── Step 4: Evaluate summary via Claude Sonnet 4 (Anthropic format) ───────────
 
 async function evaluateSummary(articleText, summary) {
-  // Truncate article text to first 3000 chars for evaluation (more context for fact-checking)
-  const truncatedArticle = articleText.length > 3000
-    ? articleText.substring(0, 3000) + '...'
+  // Send more article text for fact-checking accuracy (6000 chars instead of 3000)
+  const truncatedArticle = articleText.length > 6000
+    ? articleText.substring(0, 6000) + '... [Artikel gekuerzt]'
     : articleText;
 
-  const evalPrompt = `Du bist ein strenger, objektiver Qualitaetspruefer fuer journalistische Zusammenfassungen. Bewerte die folgende Zusammenfassung KRITISCH und EHRLICH aus 5 verschiedenen Perspektiven (1-5 Punkte). Sei nicht nachsichtig - vergib nur dann 4 oder 5 Punkte, wenn die Qualitaet wirklich herausragend ist.
+  const evalPrompt = `Du bewertest journalistische Teaser-Bullets fuer BILD.de. Die Bullets stehen UEBER dem Artikel und sollen Leser zum Weiterlesen motivieren.
 
-BEWERTUNGSMASSSTAB:
-1 = Inakzeptabel (schwere Maengel, unbrauchbar)
-2 = Mangelhaft (deutliche Probleme, muss ueberarbeitet werden)
-3 = Befriedigend (funktional, aber mit klaren Schwaechen)
-4 = Gut (professionell, nur kleine Verbesserungen moeglich)
-5 = Exzellent (vorbildlich, keine Kritik)
+Bewerte die Zusammenfassung aus 5 Perspektiven (1-5 Punkte). Sei praezise und fair - vergib die Punkte die angemessen sind.
+
+SKALA:
+1 = Schwere Fehler, unbrauchbar
+2 = Deutliche Maengel
+3 = Solide, aber mit Schwaechen
+4 = Gut, professionelles Niveau
+5 = Hervorragend, kaum verbesserbar
 
 ORIGINALARTIKEL:
 ${truncatedArticle}
 
-ZUSAMMENFASSUNG (zu bewerten):
+ZUSAMMENFASSUNG:
 ${summary}
 
-Die 5 Perspektiven - bewerte JEDE unabhaengig voneinander:
+BEWERTE AUS 5 PERSPEKTIVEN:
 
-1. "Pendler-Peter" (35, Handwerker, liest in der S-Bahn)
-   Bewertet NUR: Ist die Kerninfo in 5 Sekunden erfassbar? Sind die Saetze kurz und klar? Gibt es Fremdwoerter oder Fachbegriffe die stoeren?
-   Abzug bei: Schachtelsaetzen, zu vielen Details, unklarer Struktur.
+1. "Peter" (35, Handwerker) - VERSTAENDLICHKEIT
+   Kerninfo in 5 Sekunden erfassbar? Klare, kurze Saetze? Keine Fachbegriffe?
+   5 = Sofort klar. 3 = Verstaendlich, aber umstaendlich. 1 = Unverstaendlich.
 
-2. "Rentnerin Renate" (68, liest beim Fruehstueck die Zeitung)
-   Bewertet NUR: Sind es vollstaendige, angenehm lesbare Saetze? Gibt es stoerende Abkuerzungen? Ist der Ton respektvoll und serioes?
-   Abzug bei: Stichworten statt Saetzen, SMS-Stil, Bandwurmsaetzen, Semikolons, Klammer-Einschueben.
+2. "Renate" (68, Rentnerin) - LESBARKEIT
+   Vollstaendige, elegante Saetze? Angenehmer Lesefluss? Kein SMS-Stil?
+   5 = Wunderschoen formuliert. 3 = Lesbar, aber holprig. 1 = Kaum lesbar.
 
-3. "Student Simon" (22, scrollt am Handy)
-   Bewertet NUR: Will ich nach dem Lesen der Bullets den ganzen Artikel lesen? Wird meine Neugier geweckt? Bleibt etwas offen?
-   Abzug bei: Alles schon verraten, kein Cliffhanger, langweilig/trocken, kein emotionaler Hook.
+3. "Simon" (22, Student) - NEUGIER
+   Will ich den ganzen Artikel lesen? Bleibt etwas Spannendes offen? Guter Teaser?
+   5 = Unbedingt weiterlesen! 3 = Interessant, aber alles verraten. 1 = Langweilig.
 
-4. "Redakteur Rico" (40, BILD-Journalist, Faktencheck)
-   Bewertet NUR: Stimmen ALLE Fakten mit dem Originalartikel ueberein? Sind Quellen korrekt zugeordnet? Wurden Daten, Zahlen oder Zitate korrekt wiedergegeben?
-   STRENG PRUEFEN: Vergleiche jede Zahl, jedes Datum, jeden Namen, jedes Zitat mit dem Originalartikel. Jeder erfundene oder falsche Fakt = sofort maximal 2 Punkte.
+4. "Rico" (40, Journalist) - FAKTENTREUE
+   Stimmen alle Fakten mit dem Artikel ueberein? Namen, Zahlen, Zitate korrekt?
+   WICHTIG: Bewerte NUR Fakten die du im Artikeltext pruefen kannst. Wenn der Artikel gekuerzt wurde, gib den Vorteil des Zweifels.
+   5 = Alles korrekt. 3 = Kleine Ungenauigkeiten. 1 = Fakten erfunden.
 
-5. "Korrektorin Katja" (45, Lektorin, sprachliche Qualitaet)
-   Bewertet NUR: Sprachliches Niveau der Saetze. Eleganz, Praezision, Lesbarkeit. Korrekte Grammatik und Rechtschreibung. Redaktioneller Stil auf BILD-Niveau.
-   Abzug bei: Semikolons, Bandwurmsaetzen, abgehacktem Stil, falscher Grammatik, holprigen Formulierungen, unvollstaendigen Saetzen.
+5. "Katja" (45, Lektorin) - SPRACHQUALITAET
+   Elegante deutsche Saetze? Journalistischer Stil? Grammatik perfekt?
+   5 = Preiswuerdiger Stil. 3 = Korrekt aber langweilig. 1 = Grammatikfehler, holprig.
 
-WICHTIG: Jede Persona bewertet NUR ihren Bereich. Die Scores duerfen sich stark unterscheiden - eine Zusammenfassung kann sprachlich perfekt sein (Katja: 5) aber faktisch falsch (Rico: 1).
-
-Antworte als JSON:
+Antworte NUR mit diesem JSON:
 {
-  "pendler_peter": {"score": X, "kommentar": "Maximal 2 Saetze Begruendung."},
-  "rentnerin_renate": {"score": X, "kommentar": "Maximal 2 Saetze Begruendung."},
-  "student_simon": {"score": X, "kommentar": "Maximal 2 Saetze Begruendung."},
-  "redakteur_rico": {"score": X, "kommentar": "Maximal 2 Saetze Begruendung."},
-  "korrektorin_katja": {"score": X, "kommentar": "Maximal 2 Saetze Begruendung."}
-}
-Nur das JSON, kein anderer Text.`;
+  "pendler_peter": {"score": X, "kommentar": "..."},
+  "rentnerin_renate": {"score": X, "kommentar": "..."},
+  "student_simon": {"score": X, "kommentar": "..."},
+  "redakteur_rico": {"score": X, "kommentar": "..."},
+  "korrektorin_katja": {"score": X, "kommentar": "..."}
+}`;
 
   const response = await fetch(LITELLM_BASE + '/v1/messages', {
     method: 'POST',
