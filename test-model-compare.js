@@ -35,7 +35,7 @@ const STRIP_PATTERNS = [
   /TTS-Player\s*[u\u00fc]berspringen\s*/gi,
   /Artikel\s*weiterlesen\s*/gi,
   /Weiterlesen\s*mit\s*BILDplus\s*/gi,
-  /BILDplus\s*/g,
+  /BILDplus(?![-\w])\s*/g,
   /Foto:\s*[^\n]{0,60}(?:\n|$)/g,
   /\d{2}\.\d{2}\.\d{4}\s*-\s*\d{2}:\d{2}\s*Uhr\s*/g
 ];

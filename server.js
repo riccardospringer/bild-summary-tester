@@ -80,7 +80,7 @@ app.post('/api/fetch-article', async (req, res) => {
       /Artikel\s*lesen\s*/gi,
       /Weiterlesen\s*mit\s*BILDplus\s*/gi,
       /Jetzt\s*mit\s*BILDplus\s*lesen\s*/gi,
-      /BILDplus\s*/g,
+      /BILDplus(?![-\w])\s*/g,
       /Foto:\s*[^\n]{0,60}(?:\n|$)/g,
       /Quelle:\s*BILD\s*/gi,
       /Mehr\s*zum\s*Video\s*anzeigen\s*/gi,
