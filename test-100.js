@@ -26,7 +26,7 @@ const FETCH_RETRY_COUNT = 2;
 const FETCH_RETRY_DELAY_MS = 3000;
 
 const PROMPT_PATH = path.join(__dirname, 'prompts', 'default.json');
-const REPORT_PATH = path.join(__dirname, 'test-report-100-v3.md');
+const REPORT_PATH = path.join(__dirname, 'test-report-100-v4.md');
 
 // ── Load system prompt ─────────────────────────────────────────────────────────
 
@@ -118,7 +118,7 @@ async function fetchSitemapUrls() {
 
     if (!title || title.length < 10) continue;
     if (seen.has(url)) continue;
-    if (title.match(/live-ticker/i)) continue;
+    if (title.match(/live-ticker|horoskop|anzeige:|steckbrief:/i)) continue;
 
     seen.add(url);
 
@@ -219,7 +219,7 @@ async function generateSummary(articleText) {
     body: JSON.stringify({
       model: SUMMARY_MODEL,
       max_tokens: 16384,
-      temperature: 0.15,
+      temperature: 0.3,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: 'Fasse folgenden Artikel zusammen:\n\n' + articleText }
