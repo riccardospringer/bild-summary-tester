@@ -17,14 +17,16 @@ const path = require('path');
 
 const LITELLM_BASE = 'https://litellm.dev.tech.as-nmt.de';
 const LITELLM_TOKEN = 'sk-BIYj7SP_MwrGnL1O-j8e3Q';
-const SUMMARY_MODEL = 'gpt-5-mini';
+const SUMMARY_MODEL = 'gpt-5';
 const EVAL_MODEL = 'claude-sonnet-4';
 const MAX_ARTICLES = 100;
 const MIN_ARTICLE_LENGTH = 300;
-const DELAY_BETWEEN_ARTICLES_MS = 1000;
+const DELAY_BETWEEN_ARTICLES_MS = 2000;
+const FETCH_RETRY_COUNT = 2;
+const FETCH_RETRY_DELAY_MS = 3000;
 
 const PROMPT_PATH = path.join(__dirname, 'prompts', 'default.json');
-const REPORT_PATH = path.join(__dirname, 'test-report-100-v2.md');
+const REPORT_PATH = path.join(__dirname, 'test-report-100-v3.md');
 
 // ── Load system prompt ─────────────────────────────────────────────────────────
 
@@ -143,49 +145,64 @@ async function fetchSitemapUrls() {
 // ── Step 2: Fetch and clean article text (same as server.js) ──────────────────
 
 async function fetchArticleText(url) {
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-      'Accept': 'text/html,application/xhtml+xml',
-      'Accept-Language': 'de-DE,de;q=0.9'
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error('HTTP ' + response.status + ': ' + response.statusText);
-  }
-
-  const html = await response.text();
-  const dom = new JSDOM(html, { url });
-  const doc = dom.window.document;
-
-  // Remove BILD-specific UI elements before Readability
-  for (const sel of REMOVE_SELECTORS) {
+  let lastError;
+  for (let attempt = 0; attempt <= FETCH_RETRY_COUNT; attempt++) {
     try {
-      doc.querySelectorAll(sel).forEach(el => el.remove());
-    } catch (e) { /* ignore selector errors */ }
+      if (attempt > 0) {
+        await sleep(FETCH_RETRY_DELAY_MS * attempt);
+      }
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Cache-Control': 'no-cache'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+      }
+
+      const html = await response.text();
+      const dom = new JSDOM(html, { url });
+      const doc = dom.window.document;
+
+      // Remove BILD-specific UI elements before Readability
+      for (const sel of REMOVE_SELECTORS) {
+        try {
+          doc.querySelectorAll(sel).forEach(el => el.remove());
+        } catch (e) { /* ignore selector errors */ }
+      }
+
+      const reader = new Readability(doc);
+      const article = reader.parse();
+
+      if (!article || !article.textContent) {
+        throw new Error('Artikeltext konnte nicht extrahiert werden');
+      }
+
+      // Clean text: remove BILD UI artifacts
+      let cleanText = article.textContent.trim();
+      for (const pattern of STRIP_PATTERNS) {
+        cleanText = cleanText.replace(pattern, '');
+      }
+      // Collapse multiple blank lines
+      cleanText = cleanText.replace(/\n{3,}/g, '\n\n').trim();
+
+      return {
+        title: article.title || '',
+        text: cleanText,
+        length: cleanText.length
+      };
+    } catch (err) {
+      lastError = err;
+      if (attempt < FETCH_RETRY_COUNT) {
+        // Retry silently
+      }
+    }
   }
-
-  const reader = new Readability(doc);
-  const article = reader.parse();
-
-  if (!article || !article.textContent) {
-    throw new Error('Artikeltext konnte nicht extrahiert werden');
-  }
-
-  // Clean text: remove BILD UI artifacts
-  let cleanText = article.textContent.trim();
-  for (const pattern of STRIP_PATTERNS) {
-    cleanText = cleanText.replace(pattern, '');
-  }
-  // Collapse multiple blank lines
-  cleanText = cleanText.replace(/\n{3,}/g, '\n\n').trim();
-
-  return {
-    title: article.title || '',
-    text: cleanText,
-    length: cleanText.length
-  };
+  throw lastError;
 }
 
 // ── Step 3: Generate summary via GPT-5 Mini (OpenAI format) ───────────────────
