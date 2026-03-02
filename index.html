@@ -332,8 +332,7 @@
         <option value="">-- Prompt --</option>
       </select>
       <select id="modelSelectMain">
-        <option value="claude-sonnet-4-6" selected>Sonnet 4.6</option>
-        <option value="gpt-5.2">GPT-5.2</option>
+        <option value="gpt-5.2" selected>GPT-5.2</option>
       </select>
     </div>
     <div class="toolbar-divider"></div>
@@ -528,7 +527,7 @@
       const p = JSON.parse(opt.dataset.prompt);
       document.getElementById('promptName').value = p.name || '';
       document.getElementById('systemPrompt').value = p.system_prompt || '';
-      document.getElementById('modelSelectMain').value = p.model || 'claude-sonnet-4-6';
+      document.getElementById('modelSelectMain').value = p.model || 'gpt-5.2';
       document.getElementById('maxTokens').value = p.max_tokens || 1024;
       document.getElementById('temperature').value = p.temperature || 0.2;
 
@@ -544,7 +543,7 @@
       const p = prompts[idx];
       document.getElementById('promptName').value = p.name || '';
       document.getElementById('systemPrompt').value = p.system_prompt || '';
-      document.getElementById('modelSelectMain').value = p.model || 'claude-sonnet-4-6';
+      document.getElementById('modelSelectMain').value = p.model || 'gpt-5.2';
       document.getElementById('maxTokens').value = p.max_tokens || 1024;
       document.getElementById('temperature').value = p.temperature || 0.2;
 
